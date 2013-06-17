@@ -15,7 +15,6 @@ Group:      System/Libraries
 License:    LGPL 2
 URL:        https://github.com/mer-packages/qtdocgallery
 Source0:    %{name}-%{version}.tar.bz2
-Source100:  qt5-qtdocgallery.yaml
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 BuildRequires:  pkgconfig(Qt5Core)
