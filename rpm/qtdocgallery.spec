@@ -42,7 +42,7 @@ applications using qtdocgallery
 
 
 %prep
-%setup -q -n %{name}-%{version}
+%setup -q -n %{name}-%{version}/qtdocgallery
 
 # >> setup
 # << setup
