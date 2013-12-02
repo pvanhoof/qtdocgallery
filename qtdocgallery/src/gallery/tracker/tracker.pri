@@ -2,6 +2,10 @@ INCLUDEPATH += $$PWD
 
 QT += dbus
 
+CONFIG += link_pkgconfig
+
+PKGCONFIG_PRIVATE += Qt5Sparql
+
 PRIVATE_HEADERS += \
         $$PWD/qgallerydbusinterface_p.h \
         $$PWD/qgallerytrackerchangenotifier_p.h \

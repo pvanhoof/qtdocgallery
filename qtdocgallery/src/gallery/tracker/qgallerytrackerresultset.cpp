@@ -46,6 +46,12 @@
 #include <QtCore/qdatetime.h>
 #include <QtDBus/qdbusreply.h>
 
+#include <QSparqlResult>
+#include <QSparqlBinding>
+#include <QSparqlConnection>
+#include <QSparqlQuery>
+#include <QSparqlError>
+
 #include <qdocumentgallery.h>
 #include <qgalleryresource.h>
 
@@ -95,6 +101,27 @@ const QDBusArgument &operator >>(
     return argument;
 }
 
+QSparqlResult *operator >>(
+        QSparqlResult *r, QGalleryTrackerResultSetParser &parser)
+{
+    QString string;
+    const QVariant variant;
+
+    while (r->next()) {
+        const QSparqlResultRow& rr = r->current();
+
+        int i = 0;
+        for (; i < rr.count() && i < parser.tableWidth; ++i) {
+            string = rr.binding(i).toString();
+            parser.values.append(parser.valueColumns.at(i)->toVariant(string));
+        }
+        for (; i < parser.tableWidth; ++i)
+            parser.values.append(variant);
+    }
+
+    return r;
+}
+
 void QGalleryTrackerResultSetPrivate::update()
 {
     flags &= ~UpdateRequested;
@@ -113,6 +140,7 @@ void QGalleryTrackerResultSetPrivate::update()
     }
 }
 
+
 void QGalleryTrackerResultSetPrivate::query()
 {
     flags &= ~(Refresh | SyncFinished);
@@ -128,22 +156,70 @@ void QGalleryTrackerResultSetPrivate::query()
 
     qSwap(rCache.values, iCache.values);
 
-    QDBusPendingCall call = queryInterface->asyncCallWithArgumentList(
-            QLatin1String("SparqlQuery"), QVariantList() << sparql);
-
-    if (call.isFinished()) {
-        queryFinished(call);
-    } else {
-        queryWatcher.reset(new QDBusPendingCallWatcher(call));
-
-        QObject::connect(
-                queryWatcher.data(), SIGNAL(finished(QDBusPendingCallWatcher*)),
-                q_func(), SLOT(_q_queryFinished(QDBusPendingCallWatcher*)));
+    if (conn.isValid())
+    {
+        QSparqlQuery qry(sparql);
+        QSparqlResult* result = conn.exec(qry);
 
         progressMaximum = 2;
-
         emit q_func()->progressChanged(0, progressMaximum);
+
+        if (!result->hasError())
+        {
+            QObject::connect(result, SIGNAL(finished()), q_func(), SLOT(_q_onFinished()));
+            QObject::connect(result, SIGNAL(dataReady(int)), q_func(), SLOT(_q_onDataReady(int)));
+
+        } else {
+            emit q_func()->progressChanged(progressMaximum, progressMaximum);
+            qWarning("DBUS error %s", qPrintable(result->lastError().message()));
+            flags &= ~Active;
+            q_func()->finish(QDocumentGallery::ConnectionError);
+        }
+
+    } else {
+
+        QDBusPendingCall call = queryInterface->asyncCallWithArgumentList(
+                QLatin1String("SparqlQuery"), QVariantList() << sparql);
+
+        if (call.isFinished()) {
+            queryFinished(call);
+        } else {
+            queryWatcher.reset(new QDBusPendingCallWatcher(call));
+
+            QObject::connect(
+                    queryWatcher.data(), SIGNAL(finished(QDBusPendingCallWatcher*)),
+                    q_func(), SLOT(_q_queryFinished(QDBusPendingCallWatcher*)));
+
+            progressMaximum = 2;
+            emit q_func()->progressChanged(0, progressMaximum);
+        }
     }
+}
+
+
+void QGalleryTrackerResultSetPrivate::_q_onFinished()
+{
+       QSparqlResult* r = qobject_cast<QSparqlResult *>(q_func()->sender());
+
+       if (flags & Cancelled) {
+           iCache.count = 0;
+           flags &= ~Active;
+           q_func()->QGalleryAbstractResponse::cancel();
+
+           delete r;
+       } else {
+           useQueryReply = false;
+           queryResult = r; // owner change
+
+           parserThread.start(QThread::LowPriority);
+
+           emit q_func()->progressChanged(progressMaximum - 1, progressMaximum);
+       }
+}
+
+void QGalleryTrackerResultSetPrivate::_q_onDataReady(int count)
+{
+    emit q_func()->progressChanged(count - 1, progressMaximum);
 }
 
 void QGalleryTrackerResultSetPrivate::_q_queryFinished(QDBusPendingCallWatcher *watcher)
@@ -172,6 +248,7 @@ void QGalleryTrackerResultSetPrivate::queryFinished(const QDBusPendingCall &call
 
         q_func()->QGalleryAbstractResponse::cancel();
     } else {
+        useQueryReply = true;
         queryReply = call.reply().arguments().at(0).value<QDBusArgument>();
 
         parserThread.start(QThread::LowPriority);
@@ -183,10 +260,14 @@ void QGalleryTrackerResultSetPrivate::queryFinished(const QDBusPendingCall &call
 void QGalleryTrackerResultSetPrivate::run()
 {
     iCache.values.clear();
-
     QGalleryTrackerResultSetParser parser(iCache.values, valueColumns, tableWidth);
 
-    queryReply >> parser;
+    if (useQueryReply) {
+        queryReply >> parser;
+    } else {
+        queryResult >> parser;
+        delete queryResult;
+    }
 
     iCache.count = iCache.values.count() / tableWidth;
 

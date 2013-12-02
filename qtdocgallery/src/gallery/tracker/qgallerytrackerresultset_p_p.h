@@ -70,6 +70,9 @@
 #include <QtCore/qwaitcondition.h>
 #include <QtDBus/qdbusargument.h>
 
+#include <QSparqlResult>
+#include <QSparqlConnection>
+
 QT_BEGIN_NAMESPACE_DOCGALLERY
 
 class QGalleryTrackerResultSetThread : public QThread
@@ -278,6 +281,7 @@ public:
         , rowCount(0)
         , progressMaximum(0)
         , queryInterface(arguments->queryInterface)
+        , conn("QTRACKER_DIRECT")
         , sparql(arguments->sparql)
         , propertyNames(arguments->propertyNames)
         , propertyAttributes(arguments->propertyAttributes)
@@ -319,6 +323,7 @@ public:
     int rowCount;
     int progressMaximum;
     const QGalleryDBusInterfacePointer queryInterface;
+    QSparqlConnection conn;
     const QString sparql;
     const QStringList propertyNames;
     const QList<int> propertyKeys;
@@ -333,6 +338,8 @@ public:
 
     QScopedPointer<QDBusPendingCallWatcher> queryWatcher;
     QDBusArgument queryReply;
+    QSparqlResult *queryResult;
+    bool useQueryReply;
     QGalleryTrackerResultSetThread parserThread;
     QList<QGalleryTrackerMetaDataEdit *> edits;
     QBasicTimer updateTimer;
@@ -355,6 +362,7 @@ public:
     void query();
 
     void queryFinished(const QDBusPendingCall &call);
+
     void run();
 
     void synchronize();
@@ -373,6 +381,8 @@ public:
     void syncFinish(const int aIndex, const int iIndex);
     bool waitForSyncFinish(int msecs);
 
+    void _q_onFinished();
+    void _q_onDataReady(int count);
     void _q_queryFinished(QDBusPendingCallWatcher *watcher);
     void _q_parseFinished();
     void _q_editFinished(QGalleryTrackerMetaDataEdit *edit);

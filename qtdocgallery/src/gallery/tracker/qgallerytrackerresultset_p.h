@@ -55,9 +55,12 @@
 
 #include <qgalleryresultset.h>
 
+#include <QSparqlConnection>
+
 #include "qgallerydbusinterface_p.h"
 #include "qgallerytrackerlistcolumn_p.h"
 
+class QSparqlConnection;
 class QDBusPendingCallWatcher;
 
 QT_BEGIN_NAMESPACE_DOCGALLERY
@@ -103,6 +106,7 @@ struct QGalleryTrackerResultSetArguments
     int valueOffset;
     int compositeOffset;
     QGalleryDBusInterfacePointer queryInterface;
+    QSparqlConnection conn;
     QString sparql;
     QStringList propertyNames;
     QStringList fieldNames;
@@ -162,6 +166,8 @@ private:
     Q_DECLARE_PRIVATE(QGalleryTrackerResultSet)
     Q_PRIVATE_SLOT(d_func(), void _q_queryFinished(QDBusPendingCallWatcher *))
     Q_PRIVATE_SLOT(d_func(), void _q_parseFinished())
+    Q_PRIVATE_SLOT(d_func(), void _q_onFinished())
+    Q_PRIVATE_SLOT(d_func(), void _q_onDataReady(int))
 };
 
 QT_END_NAMESPACE_DOCGALLERY

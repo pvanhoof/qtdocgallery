@@ -110,6 +110,8 @@ public Q_SLOTS:
 private:
     Q_DECLARE_PRIVATE(QGalleryTrackerTypeResultSet)
     Q_PRIVATE_SLOT(d_func(), void _q_queryFinished(QDBusPendingCallWatcher *))
+    //Q_PRIVATE_SLOT(d_func(), void _q_onFinished())
+    //Q_PRIVATE_SLOT(d_func(), void _q_onDataReady(int))
 };
 
 QT_END_NAMESPACE_DOCGALLERY

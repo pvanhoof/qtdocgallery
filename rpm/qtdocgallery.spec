@@ -22,6 +22,7 @@ BuildRequires:  pkgconfig(Qt5Gui)
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5DBus)
 BuildRequires:  pkgconfig(Qt5Test)
+BuildRequires:  pkgconfig(Qt5Sparql)
 BuildRequires:  pkgconfig(dbus-1)
 #This is not needed --cvm
 #BuildRequires:  tracker
